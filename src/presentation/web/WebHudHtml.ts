@@ -18,7 +18,8 @@ export function getWebHudHtml(): string {
               slate: '#1C2541',
               cyan: '#00F0FF',
               emerald: '#10B981',
-              rose: '#F43F5E'
+              rose: '#F43F5E',
+              purple: '#A855F7'
             }
           }
         }
@@ -54,6 +55,7 @@ export function getWebHudHtml(): string {
           <div class="flex items-center space-x-2">
             <span class="text-lg font-bold tracking-tight text-white">TUM National Trust Fabric</span>
             <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">NIST FIPS 204 Ready</span>
+            <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">AI Agent ZTNA</span>
           </div>
           <p class="text-xs text-slate-400">Sovereign Digital Identity & Legal Super-Infrastructure</p>
         </div>
@@ -64,8 +66,8 @@ export function getWebHudHtml(): string {
           <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
           <span class="text-slate-300">NITRO ENCLAVE: ATTESTED</span>
         </div>
-        <div class="bg-tum-gold/10 text-tum-gold border border-tum-gold/30 px-3 py-1.5 rounded-lg font-semibold">
-          SPRINT 1 FOUNDATION
+        <div class="bg-purple-900/20 text-purple-400 border border-purple-500/30 px-3 py-1.5 rounded-lg font-semibold">
+          SPRINT 11 ACTIVE
         </div>
       </div>
     </div>
@@ -102,13 +104,13 @@ export function getWebHudHtml(): string {
         <p class="text-xs text-slate-500 mt-1">Zero-Knowledge Selective Disclosure</p>
       </div>
 
-      <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl relative overflow-hidden group hover:border-emerald-500/40 transition">
-        <div class="text-xs font-medium uppercase tracking-wider text-slate-400">Corridor Access Rate</div>
-        <div class="mt-2 text-2xl font-bold text-emerald-400 flex items-baseline space-x-2">
-          <span>1.0s / Person</span>
-          <span class="text-xs text-slate-400 font-mono-code">UWB + 3D</span>
+      <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl relative overflow-hidden group hover:border-purple-500/40 transition">
+        <div class="text-xs font-medium uppercase tracking-wider text-slate-400">Agentic ZTNA Gate</div>
+        <div class="mt-2 text-2xl font-bold text-purple-400 flex items-baseline space-x-2">
+          <span>Sub-5ms</span>
+          <span class="text-xs text-slate-400 font-mono-code">PoA Token</span>
         </div>
-        <p class="text-xs text-slate-500 mt-1">Walk-Through Non-stop Gateway</p>
+        <p class="text-xs text-slate-500 mt-1">Delegated Human Sovereign Authority</p>
       </div>
     </section>
 
@@ -126,7 +128,7 @@ export function getWebHudHtml(): string {
             <span class="text-xs font-mono-code text-tum-cyan">REST / JSON V1</span>
           </div>
 
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
             <button onclick="testDopaOnboard()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-xl text-slate-200 border border-slate-700 transition">
               1. DOPA Thai ID
             </button>
@@ -139,12 +141,44 @@ export function getWebHudHtml(): string {
             <button onclick="testCorridor()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-xl text-slate-200 border border-slate-700 transition">
               4. Walk-Through
             </button>
+            <button onclick="testAgentZtna()" class="px-3 py-2 bg-purple-900/40 hover:bg-purple-800/60 text-xs font-semibold rounded-xl text-purple-300 border border-purple-600/40 transition">
+              5. AI Agent ZTNA
+            </button>
           </div>
 
           <div class="bg-black/80 rounded-xl p-4 border border-slate-800 font-mono-code text-xs overflow-x-auto min-h-[160px] max-h-[260px] text-emerald-400" id="consoleOutput">
             [SYS_READY] TUM National Trust Fabric Core initialized.<br>
             [STATUS] Ready to execute Clean Architecture Sovereign pipeline operations.<br>
             &gt; Click any operation button above to test real cryptographic execution.
+          </div>
+        </div>
+
+        <!-- AI Agent Trust & ZTNA Card -->
+        <div class="bg-slate-900/90 border border-purple-900/40 rounded-2xl p-6 shadow-xl">
+          <div class="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
+            <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+              <span>🤖</span>
+              <span>Autonomous AI Agent Sovereign Identity & ZTNA Guardrails</span>
+            </h3>
+            <span class="text-xs font-mono-code text-purple-400">FAB-EPIC-09</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div class="p-3 bg-slate-800/60 rounded-xl border border-slate-700/80">
+              <div class="font-bold text-tum-gold">Human Principal</div>
+              <div class="text-[11px] text-slate-400 mt-1 font-mono-code truncate">did:tum:citizen:1100500123451</div>
+              <div class="mt-2 text-emerald-400 text-[10px] font-semibold">SOVEREIGN ATTESTED</div>
+            </div>
+            <div class="p-3 bg-slate-800/60 rounded-xl border border-slate-700/80">
+              <div class="font-bold text-purple-400">Autonomous Agent</div>
+              <div class="text-[11px] text-slate-400 mt-1 font-mono-code truncate">did:tum:agent:settlement-v2</div>
+              <div class="mt-2 text-slate-300 text-[10px]">Model: DeepSeek-R1 • Nitro Enclave</div>
+            </div>
+            <div class="p-3 bg-slate-800/60 rounded-xl border border-slate-700/80">
+              <div class="font-bold text-tum-cyan">Power of Attorney (PoA)</div>
+              <div class="text-[11px] text-slate-400 mt-1">Cap: 500,000 THB • Step-up: 60k</div>
+              <div class="mt-2 text-emerald-400 text-[10px] font-semibold">ETA B.E. 2544 LEGAL SEAL</div>
+            </div>
           </div>
         </div>
 
@@ -286,7 +320,6 @@ export function getWebHudHtml(): string {
 
     async function testZkAgeProof() {
       try {
-        // Generate proof
         const res = await fetch('/api/v1/zkp/age-proof', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -322,6 +355,53 @@ export function getWebHudHtml(): string {
         });
         const json = await res.json();
         logToConsole('Walk-Through Corridor Gate Decision', json);
+      } catch (err) {
+        logToConsole('Error', err.message);
+      }
+    }
+
+    async function testAgentZtna() {
+      try {
+        // Step 1: Issue Agent
+        const issueRes = await fetch('/api/v1/agent/issue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'Autonomous Port Settlement AI Agent',
+            description: 'Automated treasury operations',
+            modelName: 'DeepSeek-R1-Sovereign',
+            modelWeightsHash: 'a'.repeat(64),
+            systemPromptHash: 'b'.repeat(64),
+            runtimeAttestation: 'AWS_NITRO_ENCLAVE',
+            sandboxProfile: 'strict-egress-isolated',
+            validityDays: 30
+          })
+        });
+        const agent = await issueRes.json();
+
+        // Step 2: Delegate Authority
+        const delegateRes = await fetch('/api/v1/agent/delegate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            humanPrincipalDid: 'did:tum:citizen:1100500123451',
+            agentDid: agent.agentDid,
+            allowedScopes: ['BANKING_SETTLEMENT'],
+            maxTransactionAmount: 50000,
+            cumulativeBudgetLimit: 200000,
+            currency: 'THB',
+            requireStepUpApprovalAbove: 25000,
+            validityHours: 24
+          })
+        });
+        const poa = await delegateRes.json();
+
+        logToConsole('AI Agent Delegated Authority (PoA Active)', {
+          agentDid: agent.agentDid,
+          delegationId: poa.delegationId,
+          cumulativeBudget: poa.permissions.cumulativeBudgetLimit,
+          pqcAttested: true
+        });
       } catch (err) {
         logToConsole('Error', err.message);
       }
