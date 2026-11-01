@@ -13,6 +13,11 @@ import { AseanEidasFederationGateway } from '../../infrastructure/federation/Ase
 import { IssueMobileDrivingLicenseUseCase } from '../../application/use-cases/mdl/IssueMobileDrivingLicenseUseCase.js';
 import { VerifyMobileDrivingLicenseUseCase } from '../../application/use-cases/mdl/VerifyMobileDrivingLicenseUseCase.js';
 import { MdlDeviceEngagement } from '../../domain/value-objects/MdlDeviceEngagement.js';
+import { OfflineTrustCache } from '../../domain/value-objects/OfflineTrustCache.js';
+import { OfflineKioskStorageEngine } from '../../infrastructure/offline/OfflineKioskStorageEngine.js';
+import { PqcTls13HandshakeSimulator } from '../../infrastructure/offline/PqcTls13HandshakeSimulator.js';
+import { ProcessOfflineKioskVerificationUseCase } from '../../application/use-cases/offline/ProcessOfflineKioskVerificationUseCase.js';
+import { SynchronizeOfflineKioskQueueUseCase } from '../../application/use-cases/offline/SynchronizeOfflineKioskQueueUseCase.js';
 import { getWebHudHtml } from '../web/WebHudHtml.js';
 import { CitizenIdentity } from '../../domain/entities/CitizenIdentity.js';
 import { MultiAngleBiometricEngine } from '../../infrastructure/biometric/MultiAngleBiometricEngine.js';
@@ -30,6 +35,10 @@ export class SovereignTrustApiServer {
   private crossBorderGateway: CrossBorderCorridorGateway;
   private issueMdlUseCase: IssueMobileDrivingLicenseUseCase;
   private verifyMdlUseCase: VerifyMobileDrivingLicenseUseCase;
+  private trustCache: OfflineTrustCache;
+  private kioskStorageEngine: OfflineKioskStorageEngine;
+  private processOfflineUseCase: ProcessOfflineKioskVerificationUseCase;
+  private syncOfflineUseCase: SynchronizeOfflineKioskQueueUseCase;
   private server: http.Server | null = null;
 
   constructor() {
@@ -49,15 +58,28 @@ export class SovereignTrustApiServer {
       this.issueMdlUseCase.getIssuerKeyPair().publicKey
     );
 
+    // Initialize Offline Edge Kiosk Components (Sprint 10)
+    const bitVector = OfflineTrustCache.createBitVector(128, [99, 105]); // Sample revoked indices
+    this.trustCache = new OfflineTrustCache({
+      cacheVersion: 1,
+      kioskNodeId: 'KIOSK-EDGE-CHIANGMAI-01',
+      generatedAtIso: new Date().toISOString(),
+      expiresAtIso: new Date(Date.now() + 72 * 3600 * 1000).toISOString(), // 72-hour offline TTL
+      anchors: [],
+      revocationBitVectorBase64: bitVector,
+      cacheSignatureHex: 'c0ffee'.repeat(10),
+    });
+    this.kioskStorageEngine = new OfflineKioskStorageEngine('KIOSK-EDGE-CHIANGMAI-01');
+    this.processOfflineUseCase = new ProcessOfflineKioskVerificationUseCase(
+      this.kioskStorageEngine,
+      this.trustCache
+    );
+    this.syncOfflineUseCase = new SynchronizeOfflineKioskQueueUseCase(
+      this.repository,
+      this.kioskStorageEngine
+    );
+
     this.seedDemoCitizen();
-  }
-
-  public getIssueMdlUseCase(): IssueMobileDrivingLicenseUseCase {
-    return this.issueMdlUseCase;
-  }
-
-  public getVerifyMdlUseCase(): VerifyMobileDrivingLicenseUseCase {
-    return this.verifyMdlUseCase;
   }
 
   private seedDemoCitizen(): void {
@@ -110,6 +132,26 @@ export class SovereignTrustApiServer {
 
   public getIcaoUseCase(): OnboardIcaoPassportUseCase {
     return this.icaoUseCase;
+  }
+
+  public getIssueMdlUseCase(): IssueMobileDrivingLicenseUseCase {
+    return this.issueMdlUseCase;
+  }
+
+  public getVerifyMdlUseCase(): VerifyMobileDrivingLicenseUseCase {
+    return this.verifyMdlUseCase;
+  }
+
+  public getKioskStorageEngine(): OfflineKioskStorageEngine {
+    return this.kioskStorageEngine;
+  }
+
+  public getProcessOfflineUseCase(): ProcessOfflineKioskVerificationUseCase {
+    return this.processOfflineUseCase;
+  }
+
+  public getSyncOfflineUseCase(): SynchronizeOfflineKioskQueueUseCase {
+    return this.syncOfflineUseCase;
   }
 
   private async parseJsonBody(req: http.IncomingMessage): Promise<unknown> {
@@ -179,7 +221,9 @@ export class SovereignTrustApiServer {
             zkPrivacyEngine: 'Pedersen NIZK',
             mdlEngineReady: true,
             iso18013Standard: 'ISO/IEC 18013-5:2021 mDL',
-            activeSprint: 'Sprint 9 — ISO 18013-5 mDL & Quantum Resistance',
+            offlineEdgeEngineReady: true,
+            pqcTlsStandard: 'NIST FIPS 203 ML-KEM-768',
+            activeSprint: 'Sprint 10 — Edge Kiosk Offline Mode & PQC-TLS Handshake (Milestone 2)',
             uptimeSeconds: Math.floor(process.uptime()),
           });
           return;
@@ -327,6 +371,44 @@ export class SovereignTrustApiServer {
             cipherSuite: 'PQC_HYBRID_ECDH_ML_KEM_768',
             hndlImmunity: true,
           });
+          return;
+        }
+
+        // 13g. Sprint 10: Offline Edge Kiosk Verification
+        if (url.pathname === '/api/v1/offline/verify' && method === 'POST') {
+          const body = await this.parseJsonBody(req);
+          const result = await this.processOfflineUseCase.execute(body);
+          this.sendJson(res, 200, result);
+          return;
+        }
+
+        // 13h. Sprint 10: Inspect Pending Offline Queue
+        if (url.pathname === '/api/v1/offline/queue' && method === 'GET') {
+          const pending = this.kioskStorageEngine.getPendingRecords();
+          this.sendJson(res, 200, {
+            kioskNodeId: this.kioskStorageEngine.getKioskNodeId(),
+            pendingCount: pending.length,
+            records: pending.map((r) => r.toJSON()),
+          });
+          return;
+        }
+
+        // 13i. Sprint 10: Synchronize Offline Queue to Cloud Ledger
+        if (url.pathname === '/api/v1/offline/sync' && method === 'POST') {
+          const body = await this.parseJsonBody(req);
+          const result = await this.syncOfflineUseCase.execute(body);
+          this.sendJson(res, 200, result);
+          return;
+        }
+
+        // 13j. Sprint 10: PQC TLS 1.3 Key Exchange Handshake
+        if (url.pathname === '/api/v1/offline/pqc-tls-handshake' && method === 'POST') {
+          const body = (await this.parseJsonBody(req)) as any;
+          const result = PqcTls13HandshakeSimulator.performHandshake(
+            body.kioskNodeId || 'KIOSK-EDGE-01',
+            body.cloudEndpoint || 'gateway.tum.gov.th:8443'
+          );
+          this.sendJson(res, 200, result);
           return;
         }
 
