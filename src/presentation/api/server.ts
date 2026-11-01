@@ -18,6 +18,11 @@ import { OfflineKioskStorageEngine } from '../../infrastructure/offline/OfflineK
 import { PqcTls13HandshakeSimulator } from '../../infrastructure/offline/PqcTls13HandshakeSimulator.js';
 import { ProcessOfflineKioskVerificationUseCase } from '../../application/use-cases/offline/ProcessOfflineKioskVerificationUseCase.js';
 import { SynchronizeOfflineKioskQueueUseCase } from '../../application/use-cases/offline/SynchronizeOfflineKioskQueueUseCase.js';
+import { IssueAgentCredentialUseCase } from '../../application/use-cases/agentic/IssueAgentCredentialUseCase.js';
+import { DelegateHumanAuthorityUseCase } from '../../application/use-cases/agentic/DelegateHumanAuthorityUseCase.js';
+import { VerifyAgentAuthorityUseCase } from '../../application/use-cases/agentic/VerifyAgentAuthorityUseCase.js';
+import { RevokeAgentAuthorityUseCase } from '../../application/use-cases/agentic/RevokeAgentAuthorityUseCase.js';
+import { AgenticZtnaEngine } from '../../infrastructure/agentic/AgenticZtnaEngine.js';
 import { getWebHudHtml } from '../web/WebHudHtml.js';
 import { CitizenIdentity } from '../../domain/entities/CitizenIdentity.js';
 import { MultiAngleBiometricEngine } from '../../infrastructure/biometric/MultiAngleBiometricEngine.js';
@@ -39,6 +44,11 @@ export class SovereignTrustApiServer {
   private kioskStorageEngine: OfflineKioskStorageEngine;
   private processOfflineUseCase: ProcessOfflineKioskVerificationUseCase;
   private syncOfflineUseCase: SynchronizeOfflineKioskQueueUseCase;
+  private agenticZtnaEngine: AgenticZtnaEngine;
+  private issueAgentUseCase: IssueAgentCredentialUseCase;
+  private delegateAuthorityUseCase: DelegateHumanAuthorityUseCase;
+  private verifyAgentAuthorityUseCase: VerifyAgentAuthorityUseCase;
+  private revokeAgentAuthorityUseCase: RevokeAgentAuthorityUseCase;
   private server: http.Server | null = null;
 
   constructor() {
@@ -78,6 +88,13 @@ export class SovereignTrustApiServer {
       this.repository,
       this.kioskStorageEngine
     );
+
+    // Initialize AI Agent Trust & ZTNA (Sprint 11)
+    this.agenticZtnaEngine = AgenticZtnaEngine.getInstance();
+    this.issueAgentUseCase = new IssueAgentCredentialUseCase(this.repository, this.agenticZtnaEngine);
+    this.delegateAuthorityUseCase = new DelegateHumanAuthorityUseCase(this.repository, this.agenticZtnaEngine);
+    this.verifyAgentAuthorityUseCase = new VerifyAgentAuthorityUseCase(this.repository, this.agenticZtnaEngine);
+    this.revokeAgentAuthorityUseCase = new RevokeAgentAuthorityUseCase(this.repository, this.agenticZtnaEngine);
 
     this.seedDemoCitizen();
   }
@@ -154,6 +171,26 @@ export class SovereignTrustApiServer {
     return this.syncOfflineUseCase;
   }
 
+  public getAgenticZtnaEngine(): AgenticZtnaEngine {
+    return this.agenticZtnaEngine;
+  }
+
+  public getIssueAgentUseCase(): IssueAgentCredentialUseCase {
+    return this.issueAgentUseCase;
+  }
+
+  public getDelegateAuthorityUseCase(): DelegateHumanAuthorityUseCase {
+    return this.delegateAuthorityUseCase;
+  }
+
+  public getVerifyAgentAuthorityUseCase(): VerifyAgentAuthorityUseCase {
+    return this.verifyAgentAuthorityUseCase;
+  }
+
+  public getRevokeAgentAuthorityUseCase(): RevokeAgentAuthorityUseCase {
+    return this.revokeAgentAuthorityUseCase;
+  }
+
   private async parseJsonBody(req: http.IncomingMessage): Promise<unknown> {
     return new Promise((resolve, reject) => {
       let body = '';
@@ -223,7 +260,9 @@ export class SovereignTrustApiServer {
             iso18013Standard: 'ISO/IEC 18013-5:2021 mDL',
             offlineEdgeEngineReady: true,
             pqcTlsStandard: 'NIST FIPS 203 ML-KEM-768',
-            activeSprint: 'Sprint 10 — Edge Kiosk Offline Mode & PQC-TLS Handshake (Milestone 2)',
+            agenticTrustReady: true,
+            agenticStandard: 'W3C Agentic VC & ZTNA Delegation',
+            activeSprint: 'Sprint 11 — Autonomous AI Agent Identity & Delegated Human Sovereign Authority',
             uptimeSeconds: Math.floor(process.uptime()),
           });
           return;
@@ -409,6 +448,68 @@ export class SovereignTrustApiServer {
             body.cloudEndpoint || 'gateway.tum.gov.th:8443'
           );
           this.sendJson(res, 200, result);
+          return;
+        }
+
+        // 13k. Sprint 11: Issue AI Agent Sovereign Identity Credential
+        if (url.pathname === '/api/v1/agent/issue' && method === 'POST') {
+          const body = await this.parseJsonBody(req);
+          const result = await this.issueAgentUseCase.execute(body as any);
+          this.sendJson(res, 201, result);
+          return;
+        }
+
+        // 13l. Sprint 11: Delegate Human Sovereign Authority (Power of Attorney)
+        if (url.pathname === '/api/v1/agent/delegate' && method === 'POST') {
+          const body = await this.parseJsonBody(req);
+          const result = await this.delegateAuthorityUseCase.execute(body as any);
+          this.sendJson(res, 201, result);
+          return;
+        }
+
+        // 13m. Sprint 11: Verify Agent Authority & Mint ZTNA Token
+        if (url.pathname === '/api/v1/agent/verify' && method === 'POST') {
+          const body = await this.parseJsonBody(req);
+          const result = await this.verifyAgentAuthorityUseCase.execute(body as any);
+          const statusCode = result.decision === 'PERMITTED' ? 200 : (result.decision === 'CHALLENGE_STEP_UP_REQUIRED' ? 202 : 403);
+          this.sendJson(res, statusCode, result);
+          return;
+        }
+
+        // 13n. Sprint 11: Revoke Agent Authority (Emergency Kill-Switch)
+        if (url.pathname === '/api/v1/agent/revoke' && method === 'POST') {
+          const body = await this.parseJsonBody(req);
+          const result = await this.revokeAgentAuthorityUseCase.execute(body as any);
+          this.sendJson(res, 200, result);
+          return;
+        }
+
+        // 13o. Sprint 11: Query Active Delegations
+        if (url.pathname === '/api/v1/agent/delegations' && method === 'GET') {
+          const humanDid = url.searchParams.get('humanDid');
+          const agentDid = url.searchParams.get('agentDid');
+          let delegations = this.agenticZtnaEngine.listAllDelegations();
+          if (humanDid) {
+            delegations = delegations.filter((d) => d.humanPrincipalDid === humanDid);
+          }
+          if (agentDid) {
+            delegations = delegations.filter((d) => d.agentDid === agentDid);
+          }
+          this.sendJson(res, 200, {
+            count: delegations.length,
+            delegations: delegations.map((d) => ({
+              delegationId: d.delegationId,
+              humanPrincipalDid: d.humanPrincipalDid,
+              agentDid: d.agentDid,
+              permissions: d.permissions,
+              validFrom: d.validFrom,
+              validUntil: d.validUntil,
+              isRevoked: d.isRevoked,
+              revocationReason: d.revocationReason,
+              cumulativeBudgetSpent: d.cumulativeBudgetSpent,
+              remainingBudget: d.getRemainingBudget(),
+            })),
+          });
           return;
         }
 
