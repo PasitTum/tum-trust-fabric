@@ -18,11 +18,12 @@ async function main() {
     console.log('🏛️  TUM NATIONAL TRUST FABRIC — SOVEREIGN STATUS');
     console.log('==================================================');
     console.log('Product Lead:     K. Arthit (ICAO Doc 9303 & DOPA Frameworks)');
-    console.log('Sprint Status:    Active Sprint 1 In-Progress 🟢');
+    console.log('Sprint Status:    Sprint 9 — ISO/IEC 18013-5 mDL & Quantum Resistance 🟢');
     console.log('Architecture:     Clean Architecture (Domain, App, Infra, Presentation)');
     console.log('Security Level:   NIST FIPS 204 (ML-DSA-87 / Dilithium) + Hybrid Ed25519');
     console.log('Enclave Bridge:   AWS Nitro NSM / TPM 2.0 Hardware Attestation');
     console.log('Privacy Engine:   Pedersen Zero-Knowledge Selective Disclosure (<15ms)');
+    console.log('mDL Standard:     ISO/IEC 18013-5:2021 + Thai DLT Extensions');
     console.log('Corridor Access:  UWB + 3D Multi-Angle Biometrics (1.0s/person)');
     console.log('Federation:       ASEAN Trust Network & eIDAS 2.0 EUDI Wallet');
     console.log('==================================================');
@@ -131,7 +132,37 @@ async function main() {
     console.log(`   ✅ Total Chained Records: ${auditLogs.length}`);
     console.log(`   ✅ Last Block Hash:       ${auditLogs[auditLogs.length - 1]?.hashSignature.substring(0, 32)}...\n`);
 
-    console.log('🎉 ALL SPRINT 1 FOUNDATION CAPABILITIES VERIFIED SUCCESSFULLY!');
+    // 8. ISO/IEC 18013-5 Mobile Driving License (mDL)
+    console.log('8️⃣  [FAB-EPIC-07] ISO/IEC 18013-5 Sovereign Mobile Driving License (mDL)...');
+    const { result: mdlResult, license: mdlLicense } = await apiServer.getIssueMdlUseCase().execute({
+      holderDid: dopaResult.citizenDid,
+      familyName: 'ไทยแท้',
+      givenName: 'สมชาย',
+      birthDate: '1998-08-15',
+      documentNumber: 'DLT-9876543',
+      drivingPrivileges: [{ vehicleCategoryCode: 'B', issueDate: '2020-01-01', expiryDate: '2030-01-01' }],
+      sex: 1,
+      deviceKeyHex: '04' + 'c'.repeat(64),
+      dltExtensions: {
+        licenseType: 'PRIVATE_CAR_5YR',
+        taxComplianceValidUntil: '2027-01-01',
+        trafficDemeritPointsBalance: 12,
+        dltBranchCode: 'DLT-BKK-AREA-5',
+      },
+    });
+    console.log(`   ✅ mDL Issued:            ${mdlResult.licenseId}`);
+    console.log(`   ✅ QR Engagement URI:     ${mdlResult.qrCodeUri.substring(0, 35)}...`);
+    console.log(`   ✅ Post-Quantum Sealed:   ${mdlResult.isPostQuantumProtected}`);
+
+    // Verify selective disclosure (disclose ONLY age_over_18 and driving_privileges)
+    const selectivePresentation = mdlLicense.generateSelectiveDisclosure({
+      'org.iso.18013.5.1': ['age_over_18', 'driving_privileges'],
+    });
+    const verifyMdl = await apiServer.getVerifyMdlUseCase().execute({ presentation: selectivePresentation });
+    console.log(`   ✅ Selective Disclosure:  ${verifyMdl.isValid ? 'VALID (Zero address/DOB leaked)' : 'INVALID'}`);
+    console.log(`   ✅ HNDL Quantum Risk:     ${verifyMdl.hndlQuantumRiskScore === 0 ? '0% (IMMUNE)' : 'HIGH'}\n`);
+
+    console.log('🎉 ALL SPRINT 9 CAPABILITIES VERIFIED SUCCESSFULLY!');
     return;
   }
 

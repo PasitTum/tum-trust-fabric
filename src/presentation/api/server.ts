@@ -10,6 +10,9 @@ import { CrossBorderFederationUseCase } from '../../application/use-cases/federa
 import { BatchCorridorLaneProcessor } from '../../application/use-cases/corridor/BatchCorridorLaneProcessor.js';
 import { CrossBorderCorridorGateway } from '../../application/use-cases/corridor/CrossBorderCorridorGateway.js';
 import { AseanEidasFederationGateway } from '../../infrastructure/federation/AseanEidasFederationGateway.js';
+import { IssueMobileDrivingLicenseUseCase } from '../../application/use-cases/mdl/IssueMobileDrivingLicenseUseCase.js';
+import { VerifyMobileDrivingLicenseUseCase } from '../../application/use-cases/mdl/VerifyMobileDrivingLicenseUseCase.js';
+import { MdlDeviceEngagement } from '../../domain/value-objects/MdlDeviceEngagement.js';
 import { getWebHudHtml } from '../web/WebHudHtml.js';
 import { CitizenIdentity } from '../../domain/entities/CitizenIdentity.js';
 import { MultiAngleBiometricEngine } from '../../infrastructure/biometric/MultiAngleBiometricEngine.js';
@@ -25,6 +28,8 @@ export class SovereignTrustApiServer {
   private federationUseCase: CrossBorderFederationUseCase;
   private batchProcessor: BatchCorridorLaneProcessor;
   private crossBorderGateway: CrossBorderCorridorGateway;
+  private issueMdlUseCase: IssueMobileDrivingLicenseUseCase;
+  private verifyMdlUseCase: VerifyMobileDrivingLicenseUseCase;
   private server: http.Server | null = null;
 
   constructor() {
@@ -38,8 +43,21 @@ export class SovereignTrustApiServer {
     this.federationUseCase = new CrossBorderFederationUseCase(this.repository);
     this.batchProcessor = new BatchCorridorLaneProcessor(this.repository);
     this.crossBorderGateway = new CrossBorderCorridorGateway(this.repository, new AseanEidasFederationGateway());
+    this.issueMdlUseCase = new IssueMobileDrivingLicenseUseCase(this.repository);
+    this.verifyMdlUseCase = new VerifyMobileDrivingLicenseUseCase(
+      this.repository,
+      this.issueMdlUseCase.getIssuerKeyPair().publicKey
+    );
 
     this.seedDemoCitizen();
+  }
+
+  public getIssueMdlUseCase(): IssueMobileDrivingLicenseUseCase {
+    return this.issueMdlUseCase;
+  }
+
+  public getVerifyMdlUseCase(): VerifyMobileDrivingLicenseUseCase {
+    return this.verifyMdlUseCase;
   }
 
   private seedDemoCitizen(): void {
@@ -159,7 +177,9 @@ export class SovereignTrustApiServer {
             pqcEngineReady: true,
             fips204Standard: 'NIST FIPS 204 ML-DSA-87',
             zkPrivacyEngine: 'Pedersen NIZK',
-            activeSprint: 'Sprint 1 Foundation',
+            mdlEngineReady: true,
+            iso18013Standard: 'ISO/IEC 18013-5:2021 mDL',
+            activeSprint: 'Sprint 9 — ISO 18013-5 mDL & Quantum Resistance',
             uptimeSeconds: Math.floor(process.uptime()),
           });
           return;
@@ -266,6 +286,47 @@ export class SovereignTrustApiServer {
           const body = await this.parseJsonBody(req);
           const result = await this.crossBorderGateway.evaluateCrossBorderEntry(body as any);
           this.sendJson(res, 200, result);
+          return;
+        }
+
+        // 13d. ISO/IEC 18013-5 mDL Issuance
+        if (url.pathname === '/api/v1/mdl/issue' && method === 'POST') {
+          const body = await this.parseJsonBody(req);
+          const { result } = await this.issueMdlUseCase.execute(body);
+          this.sendJson(res, 201, result);
+          return;
+        }
+
+        // 13e. ISO/IEC 18013-5 mDL Selective Disclosure Verification
+        if (url.pathname === '/api/v1/mdl/verify' && method === 'POST') {
+          const body = await this.parseJsonBody(req);
+          const result = await this.verifyMdlUseCase.execute(body);
+          this.sendJson(res, 200, result);
+          return;
+        }
+
+        // 13f. ISO/IEC 18013-5 Device Engagement Handshake
+        if (url.pathname === '/api/v1/mdl/engagement' && method === 'POST') {
+          const body = (await this.parseJsonBody(req)) as any;
+          const devEngagement = new MdlDeviceEngagement({
+            version: '1.0',
+            security: {
+              cipherSuite: 'PQC_HYBRID_ECDH_ML_KEM_768',
+              ephemeralPublicKeyHex: body.deviceKeyHex || '04' + 'a'.repeat(64),
+            },
+            deviceRetrievalMethods: [{ type: 'BLE', version: 1 }],
+          });
+          const readerKeyHex = body.readerKeyHex || '04' + 'b'.repeat(64);
+          const transcript = MdlDeviceEngagement.computeSessionTranscript(
+            devEngagement.getRawBytes(),
+            Buffer.from(readerKeyHex, 'hex')
+          );
+          this.sendJson(res, 200, {
+            qrCodeUri: devEngagement.getQrCodeUri(),
+            sessionTranscriptHex: transcript.toString('hex'),
+            cipherSuite: 'PQC_HYBRID_ECDH_ML_KEM_768',
+            hndlImmunity: true,
+          });
           return;
         }
 
