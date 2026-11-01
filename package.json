@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "description": "TUM National Trust Fabric — Sovereign Digital Identity & Legal Super-Infrastructure",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
   "bin": {
-    "tum-trust": "./dist/presentation/cli/index.js"
+    "tum-trust": "./dist/src/presentation/cli/index.js"
   },
   "scripts": {
     "build": "tsc",
