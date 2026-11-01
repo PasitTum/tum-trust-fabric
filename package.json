@@ -1,0 +1,44 @@
+{
+  "name": "@tum/trust-fabric",
+  "version": "1.0.0",
+  "description": "TUM National Trust Fabric — Sovereign Digital Identity & Legal Super-Infrastructure",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "tum-trust": "./dist/presentation/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "cli": "tsx src/presentation/cli/index.ts",
+    "server": "tsx src/presentation/api/server.ts",
+    "test": "tsx --test tests/**/*.test.ts",
+    "test:coverage": "node --test --experimental-test-coverage tests/**/*.test.ts",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "tum",
+    "sovereign-identity",
+    "icao-9303",
+    "dopa-thai-id",
+    "pqc",
+    "fips-204",
+    "zk-snark",
+    "clean-architecture",
+    "eidas2"
+  ],
+  "author": "K. Arthit & TUM Trust Fabric Core Squad <daywakler01@gmail.com>",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}
