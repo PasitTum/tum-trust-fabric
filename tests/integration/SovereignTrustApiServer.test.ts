@@ -92,6 +92,35 @@ describe('Integration: SovereignTrustApiServer HTTP REST API', () => {
     assert.equal(verifyJson.isValid, true);
   });
 
+  it('POST /api/v1/corridor/cross-border should process international traveler entry', async () => {
+    const res = await fetch(`${baseUrl}/api/v1/corridor/cross-border`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        assertion: {
+          assertionId: 'ast-api-sgp-01',
+          sourceCountry: 'SGP',
+          framework: 'ASEAN_TRUST_NETWORK',
+          subjectDid: 'did:govtech:sg:citizen:S9988776A',
+          claims: { fullName: 'Lee Wei Ling' },
+          assuranceLevel: 'HIGH',
+          foreignSignatureHex: '1234567890abcdef1234567890abcdef1234567890abcdef',
+          issuedAtIso: new Date().toISOString(),
+          expiresAtIso: new Date(Date.now() + 86400000).toISOString()
+        },
+        entryPortCode: 'BKK-SUVARNABHUMI',
+        biometricMatchScore: 0.99,
+        livenessConfidence: 0.98
+      })
+    });
+
+    assert.equal(res.status, 200);
+    const json = await res.json();
+    assert.equal(json.accessGranted, true);
+    assert.equal(json.gateAction, 'GATE_OPEN_PULSE');
+    assert.ok(json.quantumVerificationDigest.length > 32);
+  });
+
   it('GET /api/v1/audit/logs should retrieve immutable audit logs', async () => {
     const res = await fetch(`${baseUrl}/api/v1/audit/logs?limit=10`);
     assert.equal(res.status, 200);

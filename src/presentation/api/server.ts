@@ -7,6 +7,9 @@ import { SelectiveDisclosureZkUseCase } from '../../application/use-cases/zkp/Se
 import { QuantumSafeTrustServicesUseCase } from '../../application/use-cases/trust-services/QuantumSafeTrustServicesUseCase.js';
 import { WalkThroughCorridorUseCase } from '../../application/use-cases/corridor/WalkThroughCorridorUseCase.js';
 import { CrossBorderFederationUseCase } from '../../application/use-cases/federation/CrossBorderFederationUseCase.js';
+import { BatchCorridorLaneProcessor } from '../../application/use-cases/corridor/BatchCorridorLaneProcessor.js';
+import { CrossBorderCorridorGateway } from '../../application/use-cases/corridor/CrossBorderCorridorGateway.js';
+import { AseanEidasFederationGateway } from '../../infrastructure/federation/AseanEidasFederationGateway.js';
 import { getWebHudHtml } from '../web/WebHudHtml.js';
 import { CitizenIdentity } from '../../domain/entities/CitizenIdentity.js';
 import { MultiAngleBiometricEngine } from '../../infrastructure/biometric/MultiAngleBiometricEngine.js';
@@ -20,6 +23,8 @@ export class SovereignTrustApiServer {
   private trustServicesUseCase: QuantumSafeTrustServicesUseCase;
   private corridorUseCase: WalkThroughCorridorUseCase;
   private federationUseCase: CrossBorderFederationUseCase;
+  private batchProcessor: BatchCorridorLaneProcessor;
+  private crossBorderGateway: CrossBorderCorridorGateway;
   private server: http.Server | null = null;
 
   constructor() {
@@ -31,6 +36,8 @@ export class SovereignTrustApiServer {
     this.trustServicesUseCase = new QuantumSafeTrustServicesUseCase(this.repository);
     this.corridorUseCase = new WalkThroughCorridorUseCase(this.repository);
     this.federationUseCase = new CrossBorderFederationUseCase(this.repository);
+    this.batchProcessor = new BatchCorridorLaneProcessor(this.repository);
+    this.crossBorderGateway = new CrossBorderCorridorGateway(this.repository, new AseanEidasFederationGateway());
 
     this.seedDemoCitizen();
   }
@@ -242,6 +249,22 @@ export class SovereignTrustApiServer {
         if (url.pathname === '/api/v1/federation/crossborder' && method === 'POST') {
           const body = await this.parseJsonBody(req);
           const result = await this.federationUseCase.execute(body);
+          this.sendJson(res, 200, result);
+          return;
+        }
+
+        // 13b. High-Throughput Batch Corridor Multi-Lane Processing
+        if (url.pathname === '/api/v1/corridor/batch' && method === 'POST') {
+          const body = await this.parseJsonBody(req);
+          const result = await this.batchProcessor.processBatch(body as any);
+          this.sendJson(res, 200, result);
+          return;
+        }
+
+        // 13c. Cross-Border Corridor Interpol & PQC Gateway
+        if (url.pathname === '/api/v1/corridor/cross-border' && method === 'POST') {
+          const body = await this.parseJsonBody(req);
+          const result = await this.crossBorderGateway.evaluateCrossBorderEntry(body as any);
           this.sendJson(res, 200, result);
           return;
         }
