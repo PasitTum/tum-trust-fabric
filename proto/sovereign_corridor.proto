@@ -1,0 +1,176 @@
+syntax = "proto3";
+
+package tum.corridor.v1;
+
+option go_package = "github.com/tum/sovereign-corridor/v1;corridorv1";
+option java_multiple_files = true;
+option java_package = "com.tum.corridor.v1";
+
+// ============================================================================
+// TUM Sovereign Corridor Gateway — gRPC High-Throughput E-Gate Lane Service
+// Designed for Sub-50ms Walk-Through Clearance & Hardware Integration
+// ============================================================================
+
+service SovereignCorridorService {
+  // Bi-directional stream for real-time stereoscopic camera embeddings & passenger guidance UX
+  rpc StreamBiometricTelemetry(stream BiometricFrameRequest) returns (stream CorridorGuidanceResponse);
+
+  // High-performance ICAO Doc 9303 ePassport chip & EF.SOD Passive Authentication
+  rpc VerifyPassportChip(PassportChipVerificationRequest) returns (PassportChipVerificationResponse);
+
+  // Instant composite clearance decision (Biometrics + MRZ + SOD + Watchlist)
+  rpc EvaluateWalkthroughPassage(WalkthroughPassageRequest) returns (WalkthroughPassageResponse);
+
+  // Hardware barrier actuator trigger (Modbus / Dry-Contact PLC open pulse)
+  rpc TriggerBarrierPulse(BarrierPulseRequest) returns (BarrierPulseResponse);
+
+  // Cluster-wide synchronization of ICAO PKD Master Lists and Revocation Bit-Vectors
+  rpc SyncMasterList(SyncMasterListRequest) returns (SyncMasterListResponse);
+}
+
+// ----------------------------------------------------------------------------
+// Biometric Telemetry & Guidance Messages
+// ----------------------------------------------------------------------------
+
+message BiometricFrameRequest {
+  string corridor_gate_id = 1;
+  int64 timestamp_ns = 2;
+  float uwb_distance_meters = 3;
+  float uwb_rssi_dbm = 4;
+  repeated CameraCapture captures = 5;
+}
+
+message CameraCapture {
+  enum CameraAngle {
+    CENTRAL_EYE_LEVEL = 0;
+    OBLIQUE_LEFT_30 = 1;
+    OBLIQUE_RIGHT_30 = 2;
+    OVERHEAD_TRACKING = 3;
+  }
+  CameraAngle angle = 1;
+  repeated float face_vector_512 = 2;
+  float liveness_confidence = 3;
+  float anti_spoof_score = 4;
+  int64 capture_time_ms = 5;
+}
+
+message CorridorGuidanceResponse {
+  enum IndicatorSignal {
+    WALK_FORWARD = 0;
+    SLOW_DOWN = 1;
+    LOOK_AT_CAMERA = 2;
+    CLEARANCE_GRANTED = 3;
+    STOP_HALT = 4;
+  }
+  IndicatorSignal signal = 1;
+  string message_text = 2;
+  string display_color_hex = 3;
+  float current_match_confidence = 4;
+  bool is_gate_opening = 5;
+}
+
+// ----------------------------------------------------------------------------
+// ICAO Doc 9303 Verification Messages
+// ----------------------------------------------------------------------------
+
+message PassportChipVerificationRequest {
+  string corridor_gate_id = 1;
+  string issuing_state = 2;
+  string document_type = 3; // "P" for passport, "I" for ID card
+  string hash_algorithm = 4; // "SHA-256", "SHA-384", "SHA-512"
+  string lds_version = 5;
+  map<int32, string> data_group_hashes = 6;
+  
+  message SignerInfo {
+    string certificate_pem = 1;
+    string signature_algorithm = 2;
+    string signature_hex = 3;
+    string content_type = 4;
+    string message_digest_hex = 5;
+    string signing_time_iso = 6;
+  }
+  SignerInfo signer_info = 7;
+  map<int32, bytes> raw_data_groups = 8;
+  repeated float live_facial_vector_512 = 9;
+}
+
+message PassportChipVerificationResponse {
+  bool access_granted = 1;
+  enum GateDecision {
+    GATE_OPEN_PULSE = 0;
+    BORDER_POLICE_DETAIN = 1;
+    CHALLENGE_MANUAL_INSPECTION = 2;
+  }
+  GateDecision gate_decision = 2;
+  string security_assessment = 3; // "GENUINE_SOVEREIGN_DOCUMENT", "TAMPERED_DATA_GROUP", etc.
+  string citizen_did = 4;
+  string credential_id = 5;
+  string decision_notes = 6;
+  string audit_digest = 7;
+  
+  message CryptographicAudit {
+    bool lds_digest_match = 1;
+    bool ds_signature_valid = 2;
+    bool ds_cert_issued_by_csca = 3;
+    bool csca_trusted_by_master_list = 4;
+    string csca_fingerprint_256 = 5;
+    string revocation_status = 6;
+  }
+  CryptographicAudit crypto_audit = 8;
+}
+
+// ----------------------------------------------------------------------------
+// Walkthrough Composite Clearance Messages
+// ----------------------------------------------------------------------------
+
+message WalkthroughPassageRequest {
+  string corridor_gate_id = 1;
+  string traveler_did = 2;
+  repeated float combined_facial_vector_512 = 3;
+  float liveness_score = 4;
+  float uwb_distance_meters = 5;
+  int64 request_timestamp_ms = 6;
+}
+
+message WalkthroughPassageResponse {
+  bool clearance_granted = 1;
+  string pass_id = 2;
+  string clearance_level = 3;
+  int64 open_barrier_pulse_ms = 4;
+  string rejection_reason = 5;
+  int64 latency_elapsed_ms = 6;
+}
+
+// ----------------------------------------------------------------------------
+// Barrier Actuator Messages
+// ----------------------------------------------------------------------------
+
+message BarrierPulseRequest {
+  string corridor_gate_id = 1;
+  string authorized_pass_id = 2;
+  int32 pulse_duration_ms = 3; // e.g. 1500ms
+  string operator_override_token = 4;
+}
+
+message BarrierPulseResponse {
+  bool pulse_executed = 1;
+  int64 actuated_at_ms = 2;
+  string plc_response_code = 3;
+}
+
+// ----------------------------------------------------------------------------
+// Master List Synchronization Messages
+// ----------------------------------------------------------------------------
+
+message SyncMasterListRequest {
+  string source_authority = 1; // "ICAO_PKD", "NATIONAL_CSCA_REPOSITORY"
+  int64 current_version = 2;
+}
+
+message SyncMasterListResponse {
+  string master_list_id = 1;
+  int64 version = 2;
+  int32 total_csca_certificates = 3;
+  string signer_fingerprint_256 = 4;
+  bool signature_verified = 5;
+}

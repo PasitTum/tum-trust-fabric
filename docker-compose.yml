@@ -1,0 +1,101 @@
+# ==============================================================================
+# TUM Sovereign Corridor Gateway — Standalone Appliance Deployment Stack
+# Classification: Turnkey Commercial Appliance for Airport E-Gates & Border Ports
+# ==============================================================================
+
+version: '3.8'
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. TUM Sovereign Corridor Gateway (Core E-Gate Controller & Engine)
+  # ----------------------------------------------------------------------------
+  sovereign-corridor-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tum/sovereign-corridor-gateway:1.0.0
+    container_name: tum-sovereign-corridor-gateway
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8088}:8088"
+    environment:
+      - NODE_ENV=production
+      - PORT=8088
+      - APPLIANCE_ID=${APPLIANCE_ID:-TUM-SOVEREIGN-CORRIDOR-01}
+      - CORRIDOR_GATE_ID=${CORRIDOR_GATE_ID:-BKK-SUVARNABHUMI-T1-GATE01}
+      - AIRPORT_CODE=${AIRPORT_CODE:-BKK}
+      - ICAO_CERTS_DIR=/app/certs
+      - EDGE_STORAGE_DIR=/app/data
+      - AUDIT_STORAGE_DIR=/app/audit
+      - BIOMETRIC_MATCH_THRESHOLD=${BIOMETRIC_MATCH_THRESHOLD:-0.85}
+      - BIOMETRIC_LIVENESS_THRESHOLD=${BIOMETRIC_LIVENESS_THRESHOLD:-0.90}
+      - PQC_SECURITY_LEVEL=${PQC_SECURITY_LEVEL:-ML-DSA-65}
+      - REDIS_URL=redis://tum-corridor-edge-cache:6379
+    volumes:
+      # Persistent Master Lists, CSCA, and DS Certificates
+      - corridor_pki_certs:/app/certs
+      # Tamper-evident, hash-chained audit records for Immigration Compliance
+      - corridor_audit_vault:/app/audit
+      # Local edge storage and offline sync queues
+      - corridor_edge_data:/app/data
+      # Read-only appliance hardware and lane configuration
+      - ./config/appliance.json:/app/config/appliance.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8088/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    networks:
+      - sovereign-corridor-net
+    depends_on:
+      - edge-cache
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ----------------------------------------------------------------------------
+  # 2. Local High-Speed In-Memory Cache (Sub-10ms Passenger Matching & CRL)
+  # ----------------------------------------------------------------------------
+  edge-cache:
+    image: redis:7-alpine
+    container_name: tum-corridor-edge-cache
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
+    networks:
+      - sovereign-corridor-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+volumes:
+  corridor_pki_certs:
+    name: tum_corridor_pki_certs
+  corridor_audit_vault:
+    name: tum_corridor_audit_vault
+  corridor_edge_data:
+    name: tum_corridor_edge_data
+
+networks:
+  sovereign-corridor-net:
+    name: tum_sovereign_corridor_net
+    driver: bridge

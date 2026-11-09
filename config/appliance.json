@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "appliance": {
+    "model": "TUM-SCG-2000-X",
+    "serialNumber": "SCG-BKK-2026-0042",
+    "firmwareVersion": "1.0.0-PROD",
+    "deploymentSite": "Suvarnabhumi International Airport (BKK)",
+    "terminal": "Terminal 1",
+    "concourse": "Concourse D",
+    "gateNumber": "EGATE-D04"
+  },
+  "peripherals": {
+    "mrzScanner": {
+      "vendor": "Access IS / HID Global",
+      "model": "AT9000 MK2",
+      "interface": "USB-HID",
+      "supportedDocuments": ["TD1", "TD2", "TD3", "ePassport_NFC"]
+    },
+    "biometricArray": {
+      "cameraCount": 3,
+      "opticalAngles": ["0_DEG_CENTRAL", "30_DEG_LEFT", "30_DEG_RIGHT"],
+      "resolution": "4K_60FPS_HDR",
+      "sensorModel": "Sony IMX585 Starvis 2 3D-Stereoscopic",
+      "antiSpoofEngine": "MultiAngleLiveness-v2"
+    },
+    "uwbRadar": {
+      "model": "Qorvo DWM3000 UWB",
+      "rangingFrequencyHz": 20,
+      "detectionRangeMeters": 5.0
+    },
+    "gateBarrier": {
+      "controllerType": "Modbus_TCP_PLC",
+      "plcEndpoint": "192.168.10.50:502",
+      "openPulseDurationMs": 1500,
+      "timeoutAutoCloseMs": 5000
+    }
+  },
+  "securityPolicy": {
+    "requireLivenessProof": true,
+    "requirePassiveAuthentication": true,
+    "blockOnInterpolAlert": true,
+    "allowOfflineFallbackHours": 72,
+    "requireQuantumNotarization": true
+  }
+}

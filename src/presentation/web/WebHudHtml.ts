@@ -128,12 +128,12 @@ export function getWebHudHtml(): string {
             <span class="text-xs font-mono-code text-tum-cyan">REST / JSON V1</span>
           </div>
 
-          <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
+          <div class="grid grid-cols-2 sm:grid-cols-6 gap-2 mb-4">
             <button onclick="testDopaOnboard()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-xl text-slate-200 border border-slate-700 transition">
               1. DOPA Thai ID
             </button>
             <button onclick="testIcaoOnboard()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-xl text-slate-200 border border-slate-700 transition">
-              2. ICAO ePassport
+              2. ICAO MRZ
             </button>
             <button onclick="testZkAgeProof()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-xl text-slate-200 border border-slate-700 transition">
               3. ZK Age &gt; 20 Proof
@@ -143,6 +143,9 @@ export function getWebHudHtml(): string {
             </button>
             <button onclick="testAgentZtna()" class="px-3 py-2 bg-purple-900/40 hover:bg-purple-800/60 text-xs font-semibold rounded-xl text-purple-300 border border-purple-600/40 transition">
               5. AI Agent ZTNA
+            </button>
+            <button onclick="testIcaoDoc9303Sod()" class="px-3 py-2 bg-tum-gold/20 hover:bg-tum-gold/40 text-xs font-semibold rounded-xl text-tum-gold border border-tum-gold/40 transition">
+              6. ICAO E-Gate
             </button>
           </div>
 
@@ -401,6 +404,22 @@ export function getWebHudHtml(): string {
           delegationId: poa.delegationId,
           cumulativeBudget: poa.permissions.cumulativeBudgetLimit,
           pqcAttested: true
+        });
+      } catch (err) {
+        logToConsole('Error', err.message);
+      }
+    }
+
+    async function testIcaoDoc9303Sod() {
+      try {
+        const mlRes = await fetch('/api/v1/icao/master-list');
+        const mlData = await mlRes.json();
+        logToConsole('ICAO Master List Status', {
+          masterListId: mlData.masterListId,
+          authority: mlData.issuingAuthority,
+          totalCscaCertificates: mlData.totalCscaCount,
+          signatureVerified: mlData.signatureVerified,
+          status: 'READY_FOR_EGATE_CLEARANCE'
         });
       } catch (err) {
         logToConsole('Error', err.message);

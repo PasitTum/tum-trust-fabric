@@ -26,6 +26,10 @@ import { AgenticZtnaEngine } from '../../infrastructure/agentic/AgenticZtnaEngin
 import { getWebHudHtml } from '../web/WebHudHtml.js';
 import { CitizenIdentity } from '../../domain/entities/CitizenIdentity.js';
 import { MultiAngleBiometricEngine } from '../../infrastructure/biometric/MultiAngleBiometricEngine.js';
+import { VerifyIcaoPassportSodUseCase } from '../../application/use-cases/onboarding/VerifyIcaoPassportSodUseCase.js';
+import { ImportIcaoMasterListUseCase } from '../../application/use-cases/corridor/ImportIcaoMasterListUseCase.js';
+import { IcaoMasterList } from '../../domain/value-objects/IcaoMasterList.js';
+import { DefaultIcaoMasterListLoader } from '../../infrastructure/crypto/DefaultIcaoMasterListLoader.js';
 
 export class SovereignTrustApiServer {
   private repository: InMemoryTrustRegistryRepository;
@@ -49,6 +53,9 @@ export class SovereignTrustApiServer {
   private delegateAuthorityUseCase: DelegateHumanAuthorityUseCase;
   private verifyAgentAuthorityUseCase: VerifyAgentAuthorityUseCase;
   private revokeAgentAuthorityUseCase: RevokeAgentAuthorityUseCase;
+  private icaoMasterList: IcaoMasterList;
+  private verifyIcaoSodUseCase: VerifyIcaoPassportSodUseCase;
+  private importMasterListUseCase: ImportIcaoMasterListUseCase;
   private server: http.Server | null = null;
 
   constructor() {
@@ -95,6 +102,11 @@ export class SovereignTrustApiServer {
     this.delegateAuthorityUseCase = new DelegateHumanAuthorityUseCase(this.repository, this.agenticZtnaEngine);
     this.verifyAgentAuthorityUseCase = new VerifyAgentAuthorityUseCase(this.repository, this.agenticZtnaEngine);
     this.revokeAgentAuthorityUseCase = new RevokeAgentAuthorityUseCase(this.repository, this.agenticZtnaEngine);
+
+    // Initialize ICAO Doc 9303 Verification & Master List Engine
+    this.icaoMasterList = DefaultIcaoMasterListLoader.loadMasterList();
+    this.verifyIcaoSodUseCase = new VerifyIcaoPassportSodUseCase(this.repository, this.icaoMasterList);
+    this.importMasterListUseCase = new ImportIcaoMasterListUseCase(this.repository);
 
     this.seedDemoCitizen();
   }
@@ -149,6 +161,18 @@ export class SovereignTrustApiServer {
 
   public getIcaoUseCase(): OnboardIcaoPassportUseCase {
     return this.icaoUseCase;
+  }
+
+  public getVerifyIcaoSodUseCase(): VerifyIcaoPassportSodUseCase {
+    return this.verifyIcaoSodUseCase;
+  }
+
+  public getImportMasterListUseCase(): ImportIcaoMasterListUseCase {
+    return this.importMasterListUseCase;
+  }
+
+  public getIcaoMasterList(): IcaoMasterList {
+    return this.icaoMasterList;
   }
 
   public getIssueMdlUseCase(): IssueMobileDrivingLicenseUseCase {
@@ -509,6 +533,39 @@ export class SovereignTrustApiServer {
               cumulativeBudgetSpent: d.cumulativeBudgetSpent,
               remainingBudget: d.getRemainingBudget(),
             })),
+          });
+          return;
+        }
+
+        // 13p. ICAO Doc 9303: Verify ePassport EF.SOD & Passive Authentication (Airport E-Gate)
+        if (url.pathname === '/api/v1/icao/verify-sod' && method === 'POST') {
+          const body = await this.parseJsonBody(req);
+          const result = await this.verifyIcaoSodUseCase.execute(body as any);
+          const statusCode = result.accessGranted ? 200 : (result.gateDecision === 'BORDER_POLICE_DETAIN' ? 403 : 400);
+          this.sendJson(res, statusCode, result);
+          return;
+        }
+
+        // 13q. ICAO Doc 9303: Import PKD / National Master List
+        if (url.pathname === '/api/v1/icao/master-list/import' && method === 'POST') {
+          const body = await this.parseJsonBody(req);
+          const { result, masterList } = await this.importMasterListUseCase.execute(body as any);
+          this.verifyIcaoSodUseCase.updateMasterList(masterList);
+          this.icaoMasterList = masterList;
+          this.sendJson(res, 200, result);
+          return;
+        }
+
+        // 13r. ICAO Doc 9303: Query Active Master List Metadata
+        if (url.pathname === '/api/v1/icao/master-list' && method === 'GET') {
+          this.sendJson(res, 200, {
+            masterListId: this.icaoMasterList.masterListId,
+            issuingAuthority: this.icaoMasterList.issuingAuthority,
+            version: this.icaoMasterList.version,
+            issuedAt: this.icaoMasterList.issuedAt,
+            validUntil: this.icaoMasterList.validUntil,
+            totalCscaCount: this.icaoMasterList.cscaCertificates.length,
+            signatureVerified: this.icaoMasterList.verifyMasterListSignature(),
           });
           return;
         }

@@ -5,7 +5,9 @@ export type DomainEventName =
   | 'QualifiedSealIssued'
   | 'CorridorPassGranted'
   | 'CorridorPassDenied'
-  | 'FederationCredentialExchanged';
+  | 'FederationCredentialExchanged'
+  | 'IcaoPassportVerified'
+  | 'IcaoPassportChallenged';
 
 export interface IDomainEvent<T = unknown> {
   eventId: string;
